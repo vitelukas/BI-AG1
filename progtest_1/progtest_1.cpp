@@ -39,9 +39,20 @@ struct Path {
 #endif
 //!                             -------------------------------------------- START OF MY CODE -------------------------------------------
 using namespace std;
-void construct_graph(const vector<Path> &all_paths, stack<size_t> &starting_nodes, unordered_map<size_t, vector<Path>> &croads_children);
-void bfs(const vector<Path> &all_paths, vector<Path> &longest_path, stack<size_t> &que, const unordered_map<size_t, vector<Path>> &croads_children);
-vector<Path> create_path(const unordered_map<size_t, Path> &crossroads, size_t source_node);
+
+struct Tnode {
+    Tnode() = default;
+
+    bool visited = 0;
+    Path parent_path = {0, 0, 0};
+    size_t distance = 0;
+    size_t n_indegree = 0;
+    vector<Path> n_children;
+};
+
+void construct_graph(const vector<Path> &all_paths, stack<size_t> &starting_nodes, unordered_map<size_t, Tnode> &nodesData);
+void bfs(const vector<Path> &all_paths, vector<Path> &longest_path, stack<size_t> &que, unordered_map<size_t, Tnode> &nodesData);
+vector<Path> create_path(unordered_map<size_t, Tnode> &nodesData, size_t node);
 
 //~  ########## DELETE ##########
 void print_path(const vector<Path> &longest_path) {
@@ -59,101 +70,97 @@ vector<Path> longest_track(size_t points, const vector<Path> &all_paths) {
         return longest_path;
 
     stack<size_t> que; // queue of nodes
-    unordered_map<size_t, vector<Path>> croads_children;
+    unordered_map<size_t, Tnode> nodesData;
+    nodesData.reserve(all_paths.size() * 1.5);
+    // unordered_map<size_t, vector<Path>> croads_children;
 
     // topologically sort the graph to get the starting nodes,
     // which will be placed into the que
-    construct_graph(all_paths, que, croads_children);
+    construct_graph(all_paths, que, nodesData);
 
-    bfs(all_paths, longest_path, que, croads_children);
+    bfs(all_paths, longest_path, que, nodesData);
 
     // print_path(longest_path); //~  ########## DELETE ##########
 
     return longest_path;
 }
 
-void construct_graph(const vector<Path> &all_paths, stack<size_t> &starting_nodes, unordered_map<size_t, vector<Path>> &croads_children) {
-    unordered_map<size_t, size_t> crossroad_indegree;
-    crossroad_indegree.reserve(all_paths.size());
-
+void construct_graph(const vector<Path> &all_paths, stack<size_t> &starting_nodes, unordered_map<size_t, Tnode> &nodesData) {
     for (const auto &path : all_paths) {
-        croads_children[path.from].emplace_back(path);
+        Tnode &node_from = nodesData[path.from]; // create the parent node in the map so that we can later check which nodes have indegree == 0
+        Tnode &node_to = nodesData[path.to];
+        node_from.n_children.emplace_back(path);
 
-        crossroad_indegree.emplace(path.from, 0); // create the parent node in the map so that we can later check which nodes have indegree == 0
-        crossroad_indegree[path.to]++;            // increase the indegree value of TO crossroad
+        node_to.n_indegree++; // increase the indegree value of TO crossroad
     }
 
     //? queue of crossroad_indegree "on the top" (with 0 indegrees)
     // cout << "Indegrees of vertices" << endl; //~  ########## DELETE ##########
-    for (const auto &c : crossroad_indegree) {
-        if (c.second == 0)
-            starting_nodes.emplace(c.first);
+    for (const auto &n : nodesData) {
+        if (n.second.n_indegree == 0)
+            starting_nodes.emplace(n.first);
 
         // cout << c.first << ": " << c.second << endl; //~  ########## DELETE ##########
     }
 }
 
-void bfs(const vector<Path> &all_paths, vector<Path> &longest_path, stack<size_t> &que, const unordered_map<size_t, vector<Path>> &croads_children) {
+void bfs(const vector<Path> &all_paths, vector<Path> &longest_path, stack<size_t> &que, unordered_map<size_t, Tnode> &nodesData) {
     size_t cur_longest_path = 0;
     size_t cur_longest_node = SIZE_MAX;
-    unordered_map<size_t, bool> visited;
-    unordered_map<size_t, Path> parents;
-    unordered_map<size_t, size_t> distances;
-    //?   |            |        |
-    //? point(node)   parent   distance
 
     // Set the distance of all starting vertices to 0 and set their parents to INF
     stack<size_t> temp_que = que;
     while (!temp_que.empty()) {
-        size_t node = temp_que.top(); // Get the front element
-        temp_que.pop();               // Remove the front element
+        size_t n = temp_que.top();
+        Tnode &node = nodesData[n]; // Get the front element
+        temp_que.pop();             // Remove the front element
 
-        distances[node] = 0;
-        parents.emplace(node, Path(node, node, 0)); // Set the parent of the node to itself, since it is a starting node
+        node.parent_path = Path(n, n, 0); // Set the parent of the node to itself, since it is a starting node
     }
 
     while (!que.empty()) {
-        size_t node = que.top();
-        visited[node] = true;
+        Tnode &node_from = nodesData[que.top()];
         que.pop();
+        node_from.visited = true;
 
-        if (croads_children.find(node) == croads_children.end())
+        // If the crossroad doesn't have any children -> skip it
+        if (node_from.n_children.empty())
             continue;
 
         // cout << "____checking children of node: " << node << "____" << endl; //~  ########## DELETE ##########
-        for (const auto &path : croads_children.at(node)) {
-            if (visited[path.to] || (distances[path.to] >= (distances[path.from] + path.length)))
+        // Check all paths poiting from this crossroad (check the crossroad's children)
+        for (const auto &path : node_from.n_children) {
+            Tnode &node_to = nodesData[path.to];
+            if (node_to.visited && (node_to.distance >= (node_from.distance + path.length)))
                 continue;
 
-            visited[path.to] = true;
-            // If the parent for the given was already created, erase the old one and update it
-            if (parents.find(path.to) != parents.end()) {
-                parents.erase(path.to);
-            }
-            parents.emplace(path.to, path);                          //? set the parent of the current node
-            distances[path.to] = distances[path.from] + path.length; //? set the acutal distance of the current node
+            node_to.visited = true;
+            // If the parent for the given node was already created, erase the old one and update it
+            node_to.parent_path = path;                          //? set the parent of the current node
+            node_to.distance = node_from.distance + path.length; //? set the acutal distance of the current node
 
             // cout << "pushing node: " << path.to << "into the queue" << endl; //~  ########## DELETE ##########
             que.push(path.to);
 
-            if (distances[path.to] > cur_longest_path) {
-                cur_longest_path = distances[path.to];
+            if (node_to.distance > cur_longest_path) {
+                cur_longest_path = node_to.distance;
                 cur_longest_node = path.to;
             }
         }
     }
 
-    longest_path = create_path(parents, cur_longest_node);
+    longest_path = create_path(nodesData, cur_longest_node);
 }
 
-vector<Path> create_path(const unordered_map<size_t, Path> &crossroads, size_t node) {
+vector<Path> create_path(unordered_map<size_t, Tnode> &nodesData, size_t node) {
     vector<Path> result;
 
     // Backtrace the path from the source node == node with the biggest distance
-    while (crossroads.at(node).from != node) {
-        // Reverse the vector so that it will start in the top node
-        result.insert(result.begin(), crossroads.at(node));
-        node = crossroads.at(node).from;
+    while (nodesData[node].parent_path.from != node) {
+        // Insert the Path to the start of the vector,
+        // so that the result path will be automatically build in reverse (from the TOP node)
+        result.insert(result.begin(), nodesData[node].parent_path);
+        node = nodesData[node].parent_path.from;
     }
 
     return result;
@@ -172,6 +179,10 @@ inline const Test TESTS[] = {
     {13, 5, {{3, 2, 10}, {3, 0, 9}, {0, 2, 3}, {2, 4, 1}}},
     {11, 5, {{3, 2, 10}, {3, 1, 4}, {1, 2, 3}, {2, 4, 1}}},
     {16, 8, {{3, 2, 10}, {3, 1, 1}, {1, 2, 3}, {1, 4, 15}}},
+    // !!!!!!!!!!!!!!!!!! CUSTOM ASSERTS !!!!!!!!!!!!!!!!!!
+    {39, 13, {{7, 11, 9}, {10, 12, 11}, {0, 2, 4}, {2, 8, 2}, {0, 3, 9}, {9, 10, 9}, {3, 7, 10}, {1, 5, 5}, {5, 3, 6}, {5, 6, 4}, {6, 9, 10}, {3, 4, 5}, {4, 10, 7}, {10, 11, 6}, {2, 3, 5}, {8, 7, 7}}},
+    {100, 15, {{9, 10, 9}, {10, 11, 6}, {13, 14, 100}, {7, 11, 9}, {0, 3, 9}, {3, 7, 10}, {3, 4, 5}, {10, 12, 11}, {1, 5, 5}, {0, 2, 4}, {2, 8, 2}, {2, 3, 5}, {8, 7, 7}, {6, 9, 10}, {5, 3, 6}, {5, 6, 4}, {4, 10, 7}}},
+    // !!!!!!!!!!!!!!!!!! CUSTOM ASSERTS !!!!!!!!!!!!!!!!!!
 };
 
 #define CHECK(cond, ...)              \
