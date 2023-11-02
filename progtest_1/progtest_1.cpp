@@ -103,7 +103,6 @@ void bfs(vector<Path> &longest_path, stack<size_t> &que, vector<Tnode> &nodesDat
         if (node_from.n_children.empty())
             continue;
 
-        // cout << "____checking children of node: " << node << "____" << endl; //~  ########## DELETE ##########
         // Check all paths poiting from this crossroad (check the crossroad's children)
         for (const auto &path : node_from.n_children) {
             Tnode &node_to = nodesData[(size_t)path.to];
@@ -115,7 +114,6 @@ void bfs(vector<Path> &longest_path, stack<size_t> &que, vector<Tnode> &nodesDat
             node_to.parent_path = path;                          //? set the parent of the current node
             node_to.distance = node_from.distance + path.length; //? set the acutal distance of the current node
 
-            // cout << "pushing node: " << path.to << "into the queue" << endl; //~  ########## DELETE ##########
             que.push(path.to);
 
             if (node_to.distance > cur_longest_path) {
@@ -156,6 +154,10 @@ inline const Test TESTS[] = {
     {13, 5, {{3, 2, 10}, {3, 0, 9}, {0, 2, 3}, {2, 4, 1}}},
     {11, 5, {{3, 2, 10}, {3, 1, 4}, {1, 2, 3}, {2, 4, 1}}},
     {16, 8, {{3, 2, 10}, {3, 1, 1}, {1, 2, 3}, {1, 4, 15}}},
+    // !!!!!!!!!!!!!!!!!! CUSTOM ASSERTS !!!!!!!!!!!!!!!!!!
+    {39, 13, {{7, 11, 9}, {10, 12, 11}, {0, 2, 4}, {2, 8, 2}, {0, 3, 9}, {9, 10, 9}, {3, 7, 10}, {1, 5, 5}, {5, 3, 6}, {5, 6, 4}, {6, 9, 10}, {3, 4, 5}, {4, 10, 7}, {10, 11, 6}, {2, 3, 5}, {8, 7, 7}}},
+    {100, 15, {{9, 10, 9}, {10, 11, 6}, {13, 14, 100}, {7, 11, 9}, {0, 3, 9}, {3, 7, 10}, {3, 4, 5}, {10, 12, 11}, {1, 5, 5}, {0, 2, 4}, {2, 8, 2}, {2, 3, 5}, {8, 7, 7}, {6, 9, 10}, {5, 3, 6}, {5, 6, 4}, {4, 10, 7}}},
+    // !!!!!!!!!!!!!!!!!! CUSTOM ASSERTS !!!!!!!!!!!!!!!!!!
 };
 
 #define CHECK(cond, ...)              \
