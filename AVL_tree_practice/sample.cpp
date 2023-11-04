@@ -38,16 +38,15 @@ private:
 
 namespace config {
 // Enable to check that the tree is AVL balanced.
-inline constexpr bool CHECK_DEPTH = false;
+inline constexpr bool CHECK_DEPTH = true;
 
 // Disable if your implementation does not have parent pointers
-inline constexpr bool PARENT_POINTERS = false;
+inline constexpr bool PARENT_POINTERS = true;
 } // namespace config
 
 //!                           ========================= START OF CODE =============================
 using namespace std;
 
-// TODO implement
 template <typename T>
 struct Tree {
 private:
@@ -125,22 +124,18 @@ private:
 
     // Balances the tree if needed
     TNode *balance(TNode *node) {
-        // Left heavy
-        if (node->balance <= -2) {
-            if (node->left->balance <= 0) {
-                return right_rotation(node);
-            } else {
-                return left_right_rotation(node);
-            }
-        }
 
-        // Right heavy
-        if (node->balance >= 2) {
-            if (node->right->balance >= 0) {
-                return left_rotation(node);
-            } else {
-                return right_left_rotation(node);
+        // Left heavy
+        if (node->balance < -1) {
+            if (node->left->balance > 0) {
+                node->left = left_rotation(node->left);
             }
+            return right_rotation(node);
+        } else if (node->balance > 1) { // Right heavy
+            if (node->right->balance < 0) {
+                node->right = right_rotation(node->right);
+            }
+            return left_rotation(node);
         }
 
         // The node has balance of -1, 0, or 1 => we don't need to balance it
@@ -187,23 +182,12 @@ private:
             else
                 P->right = Y;
         }
-        update(Y);
         update(X);
+        update(Y);
         update(P);
         return Y;
     }
 
-    TNode *left_right_rotation(TNode *node) {
-        node->left = left_rotation(node->left);
-        return right_rotation(node);
-    }
-
-    TNode *right_left_rotation(TNode *node) {
-        node->right = right_rotation(node->right);
-        return left_rotation(node);
-    }
-
-    // TODO -------------
     TNode *erase(TNode *node, T value) {
         if (node == nullptr)
             return nullptr; // Value not found in the tree
@@ -212,38 +196,54 @@ private:
             node->left = erase(node->left, value);
         } else if (value > node->value) {
             node->right = erase(node->right, value);
-        } else { // Value was found in the tree
-            // Replace the node, which is to be removed, witch it's successor
-            // to not break the tree structure
-            if (node->left == nullptr) {
-                return node->right;
-            } else if (node->right == nullptr) {
-                return node->left;
-            } else {
-                T succ_value = find_min(node->right);
+        } else { // Node to be deleted is found
+            // Case_1: Node with only one child or no child
+            if (node->left == nullptr || node->right == nullptr) {
+                TNode *temp = node->left ? node->left : node->right;
+                if (temp)
+                    temp->parent = node->parent; // Update the parent pointer of the new child
+                delete node;
+                return temp;
+            } else { // Case_2: Node with two children
+                // Find the successor of the node and replace the node with it
+                T succ_value = find_successor(node->right);
                 node->value = succ_value;
+                // Delete the successor to remove the duplicate
                 node->right = erase(node->right, succ_value);
             }
         }
 
-        update(node);
+        if (node) {
+            update(node);
+            return balance(node); // Rebalance the tree
+        }
 
-        // Rebalance the tree
-        return balance(node);
+        return nullptr;
     }
 
-    // TODO -------------
-    T find_min(TNode *node) {
+    T find_successor(TNode *node) {
         while (node->left != nullptr) {
             node = node->left;
         }
         return node->value;
     }
 
+    void delete_tree(TNode *node) {
+        if (node == nullptr)
+            return;
+
+        delete_tree(node->left);
+        delete_tree(node->right);
+        delete node;
+    }
+
     //~  		############ FUNCTION IMPLEMENTATIONS FOR PROGTEST ############
 public:
     Tree() : root(), m_size(0) {}
-    ~Tree() = default;
+    ~Tree() {
+        // Free the allocated memory of the nodes
+        delete_tree(root);
+    }
 
     size_t size() const {
         return m_size;
