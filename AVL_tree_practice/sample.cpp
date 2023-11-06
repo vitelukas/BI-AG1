@@ -240,6 +240,7 @@ private:
     //~  		############ FUNCTION IMPLEMENTATIONS FOR PROGTEST ############
 public:
     Tree() : root(), m_size(0) {}
+
     ~Tree() {
         // Free the allocated memory of the nodes
         delete_tree(root);
