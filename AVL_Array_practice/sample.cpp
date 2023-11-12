@@ -57,7 +57,7 @@ struct Array {
 private:
     struct TNode {
         T value;
-        size_t height = 0;
+        size_t height = 1;
         int balance = 0;
         TNode *parent = nullptr;
         TNode *left = nullptr;
