@@ -26,13 +26,12 @@
 *.a
 *.lib
 
-# Executables
+# Executables / binaries
 *.exe
-*.out
+**/*.out
 *.app
 
 # Others
-**/*.out
 **/*.log
 **/*.sh
 **/cmake.*
@@ -42,3 +41,7 @@
 **/*.o
 **/.lib
 **/.so
+
+# Practice files
+*playground*
+*testing*
